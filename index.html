@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Drone Operator Challenge</title>
+<style>
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07111a;color:#fff;font-family:Arial,sans-serif}
+button{font:inherit}
+#menu{position:fixed;inset:0;overflow:auto;padding:22px;background:radial-gradient(circle at 50% 0,#17344a,#07111a 65%)}
+h1{text-align:center;margin:8px 0 4px;font-size:clamp(28px,6vw,52px)}
+.subtitle{text-align:center;color:#9eb3c3;margin-bottom:18px}
+.grid{max-width:1100px;margin:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.card{background:#112333;border:2px solid #29465c;border-radius:14px;padding:12px;cursor:pointer}
+.card.selected{border-color:#23d7ff;box-shadow:0 0 20px #23d7ff33}
+.card img{width:100%;height:100px;object-fit:contain;background:#08b8cf;border-radius:9px}
+.card h3{font-size:16px;text-align:center;margin:9px 0}
+.stat{font-size:11px;color:#9fb3c2;margin:6px 0}
+.bar{height:5px;background:#07111a;border-radius:8px;overflow:hidden}
+.bar i{display:block;height:100%;background:#23d7ff}
+#start{display:block;margin:20px auto 8px;width:min(420px,90%);padding:16px;border:0;border-radius:10px;background:#16c978;color:white;font-weight:800;font-size:19px}
+#start:disabled{opacity:.35}
+#preview{max-width:700px;margin:16px auto 0;background:#0d1d2a;border:1px solid #29465c;border-radius:14px;padding:10px;display:none}
+#preview img{width:100%;height:180px;object-fit:contain;background:#08b8cf;border-radius:10px}
+#preview b{display:block;text-align:center;margin-top:8px}
+#game{display:none;position:fixed;inset:0;background:#000}
+#street{position:absolute;inset:0;background-image:url("assets/street.jpeg");background-size:cover;background-position:center;transition:background-position .25s,filter .2s}
+#street:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#07111a66,#07111a00 40%,#07111a66)}
+#hud{position:absolute;z-index:5;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;gap:8px}
+.box{background:#06101acc;border:1px solid #476176;border-radius:10px;padding:8px 12px;backdrop-filter:blur(5px)}
+#timer{font-size:24px;font-weight:900}
+#score{color:#23d7ff;font-weight:800}
+#status{font-size:11px;color:#a9bdca;margin-top:3px}
+#pip{position:absolute;z-index:7;right:12px;top:80px;width:min(260px,34vw);aspect-ratio:16/10;background:#08131d;border:2px solid #8ba5b7;border-radius:10px;overflow:hidden;box-shadow:0 5px 25px #0008}
+#pip img{width:100%;height:100%;object-fit:contain;background:#08b8cf}
+#pip .label{position:absolute;top:5px;left:6px;background:#06101acc;padding:3px 6px;border-radius:4px;font-size:10px}
+#telemetry{position:absolute;z-index:8;left:10px;top:78px;background:#06101acc;border:1px solid #476176;border-radius:8px;padding:8px;font:11px monospace;line-height:1.5}
+#crosshair{position:absolute;z-index:4;left:50%;top:50%;width:100px;height:100px;transform:translate(-50%,-50%);border:2px solid #23d7ff;border-radius:50%;pointer-events:none}
+#crosshair:before,#crosshair:after{content:"";position:absolute;background:#23d7ff}
+#crosshair:before{width:2px;height:125px;left:47px;top:-14px}
+#crosshair:after{height:2px;width:125px;left:-14px;top:47px}
+.target{position:absolute;z-index:4;width:48px;height:82px;transform:translate(-50%,-50%);transition:filter .1s}
+.target .head{position:absolute;width:19px;height:19px;left:14px;border-radius:50%;background:#e8b28c}
+.target .body{position:absolute;width:25px;height:40px;left:11px;top:18px;border-radius:8px;background:#e64e5d}
+.target .leg{position:absolute;width:8px;height:26px;top:55px;background:#18212a;border-radius:5px}
+.target .l{left:12px}.target .r{left:27px}
+.target.lock{filter:drop-shadow(0 0 13px #23d7ff)}
+#controls{position:absolute;z-index:10;left:0;right:0;bottom:0;height:150px;pointer-events:none}
+#joystick{position:absolute;left:20px;bottom:20px;width:120px;height:120px;border-radius:50%;background:#06101acc;border:2px solid #526c80;pointer-events:auto;touch-action:none}
+#stick{position:absolute;left:32px;top:32px;width:52px;height:52px;border-radius:50%;background:#23d7ff}
+#capture{position:absolute;right:25px;bottom:25px;width:100px;height:100px;border-radius:50%;border:7px solid #ffffff55;background:#e8404f;color:#fff;font-weight:900;pointer-events:auto;touch-action:manipulation}
+.arrows{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);display:grid;grid-template-columns:55px 55px 55px;grid-template-rows:45px 45px;gap:4px;pointer-events:auto}
+.arrow{border:1px solid #7791a4;background:#06101acc;color:#fff;border-radius:8px;font-size:23px}
+#up{grid-column:2}#left{grid-column:1;grid-row:2}#down{grid-column:2;grid-row:2}#right{grid-column:3;grid-row:2}
+#message{position:absolute;z-index:20;left:50%;top:62%;transform:translate(-50%,-50%);background:#06101add;padding:12px 18px;border-radius:10px;display:none;text-align:center}
+#result{display:none;position:fixed;z-index:30;inset:0;background:#06101af5;align-items:center;justify-content:center;padding:20px;text-align:center}
+.resultbox{width:min(500px,95%);background:#102536;border:1px solid #46647b;border-radius:18px;padding:32px}
+.final{font-size:68px;font-weight:900;color:#23d7ff}
+.restart{border:0;background:#16c978;color:#fff;padding:14px 30px;border-radius:9px;font-weight:800}
+@media(max-width:650px){#telemetry{font-size:9px}#pip{width:145px;top:74px}.arrows{bottom:8px;left:48%}#controls{height:140px}.box{padding:7px 9px}.target{transform:translate(-50%,-50%) scale(.85)}}
+</style>
+</head>
+<body>
+
+<section id="menu">
+<h1>DRONE OPERATOR</h1>
+<div class="subtitle">REAL-WORLD STYLE • 5-MINUTE CAPTURE CHALLENGE</div>
+<div class="grid" id="grid"></div>
+<div id="preview">
+<img id="previewImg" src="assets/drone.jpeg">
+<b id="previewName"></b>
+<div id="previewText" style="text-align:center;color:#9eb3c3;font-size:12px;margin-top:5px"></div>
+</div>
+<button id="start" disabled>SELECT A DRONE</button>
+<p style="text-align:center;color:#708695;font-size:11px">Prototype uses your supplied drone and street images. Replace them with licensed video footage for fully realistic motion.</p>
+</section>
+
+<section id="game">
+<div id="street"></div>
+<div id="hud">
+ <div class="box"><div id="timer">05:00</div><div id="status">MISSION READY</div></div>
+ <div class="box"><div id="score">CAPTURED: 0</div><div id="droneHud">—</div></div>
+</div>
+<div id="telemetry">ALT 18.4m<br>SPEED 0.0 m/s<br>HDG 090°<br>GPS 0.0000, 0.0000</div>
+<div id="pip"><img src="assets/drone.jpeg"><span class="label">DRONE VIEW</span></div>
+<div id="crosshair"></div>
+<div id="message"></div>
+<div id="controls">
+ <div id="joystick"><div id="stick"></div></div>
+ <div class="arrows">
+  <button class="arrow" id="up">▲</button><button class="arrow" id="left">◀</button><button class="arrow" id="down">▼</button><button class="arrow" id="right">▶</button>
+ </div>
+ <button id="capture">CAPTURE</button>
+</div>
+</section>
+
+<section id="result">
+<div class="resultbox">
+<h1>MISSION COMPLETE</h1>
+<div class="final" id="finalScore">0</div>
+<div>PEOPLE CAPTURED</div>
+<p id="resultText" style="color:#a8bbc8"></p>
+<button class="restart" onclick="location.reload()">PLAY AGAIN</button>
+</div>
+</section>
+
+<script>
+const drones=[
+["DJI Mavic 3",1.00,1.00,100],["DJI Mini 4 Pro",.85,1.20,80],
+["DJI Air 3",1.05,1.05,95],["DJI Avata 2",1.30,1.50,70],
+["DJI Inspire 3",.90,.90,150],["DJI Phantom 4 Pro",.80,.75,140],
+["DJI Matrice 350",.70,.65,170],["DJI Neo",.90,1.30,65]
+];
+let selected=null,score=0,time=300,running=false,last=0;
+let p={x:50,y:50}, input={x:0,y:0}, targets=[], keys={};
+const $=id=>document.getElementById(id);
+
+drones.forEach((d,i)=>{
+ const c=document.createElement("div"); c.className="card";
+ c.innerHTML=`<img src="assets/drone.jpeg"><h3>${d[0]}</h3>
+ <div class="stat">SPEED ${Math.round(d[1]*100)}%<div class="bar"><i style="width:${Math.min(d[1]/1.5*100,100)}%"></i></div></div>
+ <div class="stat">AGILITY ${Math.round(d[2]/1.5*100)}%<div class="bar"><i style="width:${Math.min(d[2]/1.5*100,100)}%"></i></div></div>
+ <div class="stat">CAMERA ${d[3]}m<div class="bar"><i style="width:${Math.min(d[3]/170*100,100)}%"></i></div></div>`;
+ c.onclick=()=>{
+  document.querySelectorAll(".card").forEach(x=>x.classList.remove("selected"));c.classList.add("selected");
+  selected=d;$("preview").style.display="block";$("previewName").textContent=d[0];
+  $("previewText").textContent=`Camera range ${d[3]}m • Speed ${Math.round(d[1]*100)}% • Agility ${Math.round(d[2]/1.5*100)}%`;
+  $("start").disabled=false;$("start").textContent="START "+d[0].toUpperCase();
+ };$("grid").appendChild(c);
+});
+
+$("start").onclick=()=>{
+ $("menu").style.display="none";$("game").style.display="block";
+ $("droneHud").textContent=selected[0];score=0;time=300;p.x=50;p.y=50;running=true;
+ targets=[];for(let i=0;i<9;i++)spawn();last=performance.now();requestAnimationFrame(loop);
+};
+
+function spawn(){
+ const e=document.createElement("div");e.className="target";
+ e.innerHTML='<div class="head"></div><div class="body"></div><div class="leg l"></div><div class="leg r"></div>';
+ e.style.left=(Math.random()*88+6)+"%";e.style.top=(Math.random()*68+12)+"%";
+ $("street").appendChild(e);
+ targets.push({e,x:parseFloat(e.style.left),y:parseFloat(e.style.top),vx:(Math.random()-.5)*.09,vy:(Math.random()-.5)*.06,dead:false});
+}
+function loop(t){
+ if(!running)return;
+ let dt=(t-last)/1000;last=t;time-=dt;
+ if(time<=0){time=0;end();return}
+ $("timer").textContent=format(time);$("status").textContent="MISSION ACTIVE";
+ move(dt);people(dt);lock();requestAnimationFrame(loop);
+}
+function format(s){let m=Math.floor(s/60),x=Math.floor(s%60);return String(m).padStart(2,"0")+":"+String(x).padStart(2,"0")}
+function move(dt){
+ let x=input.x,y=input.y;
+ if(keys.w||keys.arrowup)y-=1;if(keys.s||keys.arrowdown)y+=1;if(keys.a||keys.arrowleft)x-=1;if(keys.d||keys.arrowright)x+=1;
+ const sp=selected[1]*selected[2]*7*dt;p.x=Math.max(5,Math.min(95,p.x+x*sp));p.y=Math.max(7,Math.min(92,p.y+y*sp));
+ $("telemetry").innerHTML=`ALT ${(12+p.y/5).toFixed(1)}m<br>SPEED ${(Math.hypot(x,y)*selected[1]*6).toFixed(1)} m/s<br>HDG ${heading(x,y)}°<br>GPS ${p.x.toFixed(4)}, ${p.y.toFixed(4)}`;
+ $("street").style.backgroundPosition=`${50+(p.x-50)*.15}% ${50+(p.y-50)*.10}%`;
+}
+function heading(x,y){if(!x&&!y)return"090";let a=Math.atan2(x,-y)*180/Math.PI;if(a<0)a+=360;return String(Math.round(a)).padStart(3,"0")}
+function people(dt){
+ targets.forEach(q=>{if(q.dead)return;q.x+=q.vx*dt*60;q.y+=q.vy*dt*60;
+  if(q.x<4||q.x>96)q.vx*=-1;if(q.y<7||q.y>90)q.vy*=-1;
+  q.e.style.left=q.x+"%";q.e.style.top=q.y+"%";
+ });
+}
+function lock(){
+ let best=null,bd=999;
+ targets.forEach(q=>{q.e.classList.remove("lock");if(q.dead)return;let d=Math.hypot(q.x-p.x,q.y-p.y);if(d<bd){bd=d;best=q}});
+ if(best&&bd<18)best.e.classList.add("lock");
+}
+function capture(){
+ if(!running)return;let best=null,bd=999;
+ targets.forEach(q=>{if(q.dead)return;let d=Math.hypot(q.x-p.x,q.y-p.y);if(d<bd){bd=d;best=q}});
+ const range=Math.max(7,selected[3]/14);
+ if(best&&bd<range){
+  best.dead=true;best.e.remove();score++;$("score").textContent="CAPTURED: "+score;
+  setTimeout(()=>{if(running)spawn()},250);flash("TARGET CAPTURED");
+ }else flash("MOVE CLOSER / AIM AT TARGET");
+}
+function flash(s){$("message").textContent=s;$("message").style.display="block";setTimeout(()=>$("message").style.display="none",550)}
+$("capture").onclick=capture;
+document.addEventListener("keydown",e=>{keys[e.key.toLowerCase()]=true;if(e.code==="Space"){e.preventDefault();capture()}});
+document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+
+["up","down","left","right"].forEach(id=>{
+ const b=$(id);b.onpointerdown=()=>{input={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}[id]};
+ b.onpointerup=b.onpointercancel=()=>input={x:0,y:0};
+});
+const joy=$("joystick"),stick=$("stick");let active=false;
+joy.onpointerdown=e=>{active=true;joy.setPointerCapture(e.pointerId);joyMove(e)};
+joy.onpointermove=e=>{if(active)joyMove(e)};joy.onpointerup=joy.onpointercancel=()=>{active=false;input={x:0,y:0};stick.style.left="32px";stick.style.top="32px"};
+function joyMove(e){
+ const r=joy.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),max=38,d=Math.hypot(dx,dy),x=d>max?dx/d*max:dx,y=d>max?dy/d*max:dy;
+ stick.style.left=(34+x)+"px";stick.style.top=(34+y)+"px";input={x:x/max,y:y/max};
+}
+function end(){
+ running=false;$("game").style.display="none";$("result").style.display="flex";$("finalScore").textContent=score;
+ $("resultText").textContent=`You captured ${score} people in 5 minutes using ${selected[0]}.`;
+}
+</script>
+</body>
+</html>
