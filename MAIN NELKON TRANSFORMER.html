@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NELKON Transformer v7 — Minna → WGS84 UTM</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+    <style>
+        :root {
+            --ink: #1B2A32;
+            --paper: #F5F2EB;
+            --accent: #2D5A58;
+            --ink-03: rgba(27,42,50,0.03);
+            --ink-05: rgba(27,42,50,0.05);
+            --ink-08: rgba(27,42,50,0.08);
+            --ink-12: rgba(27,42,50,0.12);
+            --ink-20: rgba(27,42,50,0.20);
+            --ink-35: rgba(27,42,50,0.35);
+            --ink-55: rgba(27,42,50,0.55);
+            --ink-75: rgba(27,42,50,0.75);
+            --accent-08: rgba(45,90,88,0.08);
+            --accent-15: rgba(45,90,88,0.15);
+            --accent-25: rgba(45,90,88,0.25);
+            --accent-60: rgba(45,90,88,0.60);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', 'Segoe UI', Roboto, system-ui, sans-serif;
+            background: var(--paper);
+            padding: 16px;
+            color: var(--ink);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--paper);
+            border-radius: 10px;
+            border: 1px solid var(--ink-12);
+            box-shadow: 0 1px 2px var(--ink-05), 0 8px 24px var(--ink-05);
+            padding: 24px 22px 28px;
+        }
+
+        /* Header */
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--ink);
+        }
+        .app-header .logo {
+            width: 42px; height: 42px;
+            background: var(--ink);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+            color: var(--paper);
+        }
+        .app-header h1 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--ink);
+            line-height: 1.15;
+        }
+        .app-header h1 small {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-left: 6px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .app-header .sub {
+            font-size: 0.72rem;
+            color: var(--ink-55);
+            font-weight: 500;
+            display: block;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+        .badge-version {
+            margin-left: auto;
+            background: transparent;
+            color: var(--ink);
+            border: 1px solid var(--ink);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin: 20px 0 22px;
+            border-bottom: 1px solid var(--ink-20);
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            flex: 1;
+            min-width: 110px;
+            padding: 12px 10px;
+            background: transparent;
+            border: none;
+            font-weight: 600;
+            font-size: 0.78rem;
+            color: var(--ink-55);
+            cursor: pointer;
+            transition: color 0.18s, border-color 0.18s;
+            text-align: center;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            font-family: inherit;
+        }
+        .tab-btn.active {
+            color: var(--ink);
+            border-bottom-color: var(--accent);
+        }
+        .tab-btn:not(.active):hover { color: var(--ink-75); }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+
+        /* Frames */
+        .frame {
+            background: transparent;
+            border-radius: 8px;
+            padding: 18px 16px;
+            margin-bottom: 14px;
+            border: 1px solid var(--ink-12);
+        }
+        .frame-title {
+            font-weight: 700;
+            font-size: 0.72rem;
+            color: var(--ink);
+            margin-bottom: 14px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--ink-12);
+            padding-bottom: 8px;
+        }
+        .frame-title .badge-tag {
+            font-size: 0.58rem;
+            background: var(--accent);
+            color: var(--paper);
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            margin-left: auto;
+        }
+
+        /* Inputs */
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 14px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .row label {
+            min-width: 84px;
+            font-size: 0.78rem;
+            color: var(--ink-75);
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .row input, .row select {
+            flex: 1;
+            min-width: 90px;
+            padding: 9px 12px;
+            border: 1px solid var(--ink-20);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: var(--paper);
+            color: var(--ink);
+            font-weight: 500;
+            font-family: inherit;
+            transition: border-color 0.18s, box-shadow 0.18s;
+        }
+        .row input::placeholder { color: var(--ink-35); }
+        .row input:focus, .row select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-15);
+        }
+        .row input[type="number"] { -moz-appearance: textfield; }
+        .row input[type="number"]::-webkit-outer-spin-button,
+        .row input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* Buttons */
+        .btn {
+            background: var(--ink);
+            color: var(--paper);
+            border: 1px solid var(--ink);
+            padding: 9px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.76rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            font-family: inherit;
+        }
+        .btn:hover { background: var(--ink-75); border-color: var(--ink-75); }
+        .btn:active { transform: translateY(1px); }
+        .btn-accent {
+            background: var(--accent);
+            color: var(--paper);
+            border-color: var(--accent);
+        }
+        .btn-accent:hover {
+            background: var(--accent-60);
+            border-color: var(--accent-60);
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--ink);
+            border: 1px solid var(--ink);
+        }
+        .btn-outline:hover { background: var(--ink); color: var(--paper); }
+        .btn-ghost {
+            background: transparent;
+            color: var(--ink-55);
+            border: 1px solid var(--ink-20);
+        }
+        .btn-ghost:hover {
+            background: var(--ink-05);
+            color: var(--ink);
+            border-color: var(--ink-35);
+        }
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        /* Textarea */
+        textarea {
+            width: 100%;
+            padding: 11px 12px;
+            border: 1px solid var(--ink-20);
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 0.82rem;
+            resize: vertical;
+            min-height: 88px;
+            background: var(--paper);
+            color: var(--ink);
+            font-weight: 500;
+            transition: border-color 0.18s, box-shadow 0.18s;
+        }
+        textarea::placeholder { color: var(--ink-35); }
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-15);
+        }
+
+        /* Table */
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--ink-20);
+            background: var(--paper);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+            min-width: 620px;
+        }
+        th {
+            background: var(--ink);
+            padding: 10px;
+            text-align: right;
+            font-weight: 600;
+            color: var(--paper);
+            white-space: nowrap;
+            font-size: 0.68rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+        td {
+            padding: 8px 11px;
+            text-align: right;
+            border-bottom: 1px solid var(--ink-08);
+            font-feature-settings: "tnum";
+            color: var(--ink);
+            font-weight: 500;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 0.76rem;
+        }
+        td:first-child, th:first-child { text-align: left; }
+        tbody tr:nth-child(even) { background: var(--ink-03); }
+        tbody tr:hover { background: var(--accent-08); }
+        .empty-row td {
+            text-align: center;
+            color: var(--ink-55);
+            padding: 28px;
+            font-size: 0.82rem;
+            font-style: italic;
+            font-weight: 500;
+            font-family: inherit;
+        }
+        tr.selected {
+            background: var(--accent-15) !important;
+            outline: 2px solid var(--accent);
+            outline-offset: -2px;
+        }
+
+        /* Status */
+        .status {
+            margin-top: 14px;
+            padding: 12px 16px;
+            background: var(--ink);
+            border-radius: 6px;
+            font-size: 0.78rem;
+            color: var(--paper);
+            text-align: center;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            letter-spacing: 0.03em;
+        }
+
+        /* Utilities */
+        .text-muted {
+            color: var(--ink-55);
+            font-size: 0.72rem;
+            line-height: 1.5;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+        }
+        .info-text {
+            color: var(--ink-75);
+            font-size: 0.75rem;
+            line-height: 1.55;
+            padding: 9px 12px;
+            background: var(--ink-03);
+            border-left: 3px solid var(--accent);
+            border-radius: 3px;
+            font-weight: 500;
+        }
+        .mt-1 { margin-top: 10px; }
+        .section-label {
+            font-weight: 700;
+            font-size: 0.82rem;
+            color: var(--ink);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 520px) {
+            .container { padding: 18px 14px 22px; }
+            .row { flex-direction: column; align-items: stretch; }
+            .row label { min-width: unset; }
+            .btn { width: 100%; justify-content: center; }
+            .btn-group .btn { flex: 1; }
+            .tab-btn { font-size: 0.66rem; min-width: 70px; padding: 10px 5px; }
+            .app-header h1 { font-size: 1rem; }
+            .badge-version { display: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="app-header">
+        <div class="logo">◈</div>
+        <div>
+            <h1>NELKON Transformer <small>v7</small></h1>
+            <span class="sub">Minna → WGS84 UTM · EPSG:1168</span>
+        </div>
+        <span class="badge-version">DMA-Nga</span>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="minna">Minna → WGS84 UTM</button>
+        <button class="tab-btn" data-tab="tb20">TB20 → UTM</button>
+        <button class="tab-btn" data-tab="geo">Geo ↔ UTM</button>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB: MINNA → WGS84 UTM                                       -->
+    <!-- ============================================================ -->
+    <div id="tab-minna" class="tab-pane active">
+
+        <div class="frame">
+            <div class="frame-title">
+                Source — Nigeria National Grid
+                <span class="badge-tag">EPSG:1168</span>
+            </div>
+            <div class="row">
+                <label>Source System</label>
+                <select id="src-system">
+                    <option value="utm32n" selected>Minna / UTM Zone 32N</option>
+                    <option value="utm31n">Minna / UTM Zone 31N</option>
+                    <option value="west-belt">Nigeria West Belt (NTM)</option>
+                    <option value="mid-belt">Nigeria Mid Belt (NTM)</option>
+                    <option value="east-belt">Nigeria East Belt (NTM)</option>
+                </select>
+            </div>
+            <div class="info-text mt-1" id="src-hint">
+                Minna datum · Clarke 1880 (RGS) · Transformed to WGS84 via EPSG:1168 (Geocentric Translations, geog2D domain).
+            </div>
+        </div>
+
+        <div class="frame">
+            <div class="frame-title">Target — WGS84 UTM Output</div>
+            <div class="row">
+                <label>Output Zone</label>
+                <select id="out-zone" style="flex:1.6;">
+                    <option value="32" selected>Zone 32N (6°–12°E)</option>
+                    <option value="31">Zone 31N (0°–6°E)</option>
+                    <option value="33">Zone 33N (12°–18°E)</option>
+                </select>
+                <label>Hemisphere</label>
+                <select id="out-hemi">
+                    <option value="N" selected>North</option>
+                    <option value="S">South</option>
+                </select>
+            </div>
+            <div class="info-text mt-1">
+                Output is WGS84 UTM in metres.
+            </div>
+        </div>
+
+        <div class="frame">
+            <div class="frame-title">Input — Minna Coordinates</div>
+            <div class="row">
+                <label>Easting (m)</label>
+                <input type="number" id="in-e" value="344077.774" step="any" />
+                <label>Northing (m)</label>
+                <input type="number" id="in-n" value="717514.211" step="any" />
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-accent" id="add-point">Add Single Point</button>
+                <button class="btn btn-ghost" id="swap-en">Swap E / N</button>
+                <button class="btn btn-outline" id="load-control">Load Control Point</button>
+            </div>
+            <div class="mt-1">
+                <label class="text-muted">Batch input — one pair per line (Easting, Northing)</label>
+                <textarea id="batch-input" placeholder="344077.774 717514.211&#10;230738.26 365104.08&#10;670553.98 365104.08"></textarea>
+            </div>
+            <div class="btn-group">
+                <button class="btn" id="convert-all">Convert All</button>
+                <button class="btn btn-ghost" id="clear-batch">Clear Batch</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB: TB20 → UTM                                              -->
+    <!-- ============================================================ -->
+    <div id="tab-tb20" class="tab-pane">
+        <div class="frame">
+            <div class="frame-title">TB20 Parameters</div>
+            <div class="row">
+                <label>Rotation (deg)</label>
+                <input type="number" id="tb20-angle" value="0.0330555555" step="any" />
+                <label>Scale</label>
+                <input type="number" id="tb20-scale" value="0.999999999" step="any" />
+            </div>
+            <div class="row">
+                <label>Tx (m)</label>
+                <input type="number" id="tb20-tx" value="332287.4231" step="any" />
+                <label>Ty (m)</label>
+                <input type="number" id="tb20-ty" value="711676.8669" step="any" />
+            </div>
+            <div class="row">
+                <label>UTM Zone</label>
+                <input type="number" id="tb20-zone" value="32" min="1" max="60" />
+                <label>Hemisphere</label>
+                <select id="tb20-hemi">
+                    <option value="N">N</option>
+                    <option value="S">S</option>
+                </select>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-outline" id="tb20-reset">Reset Defaults</button>
+            </div>
+        </div>
+
+        <div class="frame">
+            <div class="frame-title">Input TB20 Coordinates</div>
+            <div class="row">
+                <label>Easting</label>
+                <input type="number" id="tb20-e" value="100.0" step="any" />
+                <label>Northing</label>
+                <input type="number" id="tb20-n" value="200.0" step="any" />
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-accent" id="tb20-add">Add Single Point</button>
+            </div>
+            <div class="mt-1">
+                <label class="text-muted">Batch input — one pair per line (Easting, Northing)</label>
+                <textarea id="tb20-batch" placeholder="100 200&#10;300.5 400.2"></textarea>
+            </div>
+            <div class="btn-group">
+                <button class="btn" id="tb20-convert-all">Convert All</button>
+                <button class="btn btn-ghost" id="tb20-clear-batch">Clear Batch</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB: GEO ↔ UTM                                               -->
+    <!-- ============================================================ -->
+    <div id="tab-geo" class="tab-pane">
+        <div class="frame">
+            <div class="frame-title">Geographic ↔ UTM (WGS84)</div>
+            <div class="row">
+                <label>Direction</label>
+                <select id="geo-dir">
+                    <option value="geo2utm">Geo → UTM</option>
+                    <option value="utm2geo">UTM → Geo</option>
+                </select>
+                <label>Zone</label>
+                <input type="number" id="geo-zone" value="32" min="1" max="60" style="flex:0.8" />
+                <label>Hemisphere</label>
+                <select id="geo-hemi" style="flex:0.8">
+                    <option value="N">N</option>
+                    <option value="S">S</option>
+                </select>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-outline" id="geo-reset">Reset Defaults</button>
+            </div>
+        </div>
+        <div class="frame">
+            <div class="frame-title" id="geo-input-label">Input — Latitude / Longitude</div>
+            <div class="row" id="geo-input-row">
+                <label id="geo-l1">Latitude (°)</label>
+                <input type="number" id="geo-v1" value="6.5244" step="any" />
+                <label id="geo-l2">Longitude (°)</label>
+                <input type="number" id="geo-v2" value="3.3792" step="any" />
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-accent" id="geo-add">Add Single Point</button>
+            </div>
+            <div class="mt-1">
+                <label class="text-muted" id="geo-batch-lbl">Batch input — one pair per line (lat lon)</label>
+                <textarea id="geo-batch" placeholder="6.5244 3.3792&#10;6.4500 3.4000"></textarea>
+            </div>
+            <div class="btn-group">
+                <button class="btn" id="geo-convert-all">Convert All</button>
+                <button class="btn btn-ghost" id="geo-clear-batch">Clear Batch</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== RESULTS ==================== -->
+    <div style="margin-top:18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+            <span class="section-label">Results</span>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button class="btn btn-outline" id="export-csv">Export CSV</button>
+                <button class="btn btn-ghost" id="clear-results">Clear</button>
+                <button class="btn btn-accent" id="delete-selected">Delete Selected</button>
+            </div>
+        </div>
+        <div class="table-wrapper">
+            <table id="results-table">
+                <thead>
+                    <tr id="results-head">
+                        <th>Input 1</th>
+                        <th>Input 2</th>
+                        <th>Output 1</th>
+                        <th>Output 2</th>
+                        <th>Extra 1</th>
+                        <th>Extra 2</th>
+                    </tr>
+                </thead>
+                <tbody id="results-body">
+                    <tr class="empty-row"><td colspan="6">No results yet — enter coordinates above</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="status" id="status-bar">Ready — enter coordinates to convert</div>
+    </div>
+</div>
+
+<script>
+// ================================================================
+// 1. PROJ4 DEFINITIONS
+// ================================================================
+
+// EPSG:1168 — "Minna to WGS 84 (2)" (DMA-Nga)
+// METHOD: Geocentric translations (geog2D domain) — EPSG:9603
+// PARAMETERS: X=-92 m, Y=-93 m, Z=122 m, accuracy 15 m
+// Ellipsoid: Clarke 1880 (RGS)  a=6378249.145  rf=293.465
+const EPSG_1168_TOWGS84 = '+towgs84=-92,-93,122,0,0,0,0';
+
+// WGS84 geographic
+proj4.defs('WGS84', '+proj=longlat +datum=WGS84 +no_defs');
+
+// Minna geographic (Clarke 1880 RGS + EPSG:1168 shift) — not exposed in UI
+proj4.defs('MINNA:GEO',
+    '+proj=longlat +a=6378249.145 +rf=293.465 ' +
+    EPSG_1168_TOWGS84 + ' +no_defs');
+
+// Minna UTM zones
+proj4.defs('NG:UTM31N',
+    '+proj=utm +zone=31 +a=6378249.145 +rf=293.465 ' +
+    EPSG_1168_TOWGS84 + ' +units=m +no_defs');
+
+proj4.defs('NG:UTM32N',
+    '+proj=utm +zone=32 +a=6378249.145 +rf=293.465 ' +
+    EPSG_1168_TOWGS84 + ' +units=m +no_defs');
+
+// Nigeria National Grid belts (Transverse Mercator, Clarke 1880 RGS)
+proj4.defs('NG:WEST',
+    '+proj=tmerc +lat_0=4 +lon_0=4.5 +k=0.99975 ' +
+    '+x_0=230738.26 +y_0=0 +a=6378249.145 +rf=293.465 ' +
+    EPSG_1168_TOWGS84 + ' +units=m +no_defs');
+
+proj4.defs('NG:MID',
+    '+proj=tmerc +lat_0=4 +lon_0=8.5 +k=0.99975 ' +
+    '+x_0=670553.98 +y_0=0 +a=6378249.145 +rf=293.465 ' +
+    EPSG_1168_TOWGS84 + ' +units=m +no_defs');
+
+proj4.defs('NG:EAST',
+    '+proj=tmerc +lat_0=4 +lon_0=12.5 +k=0.99975 ' +
+    '+x_0=1110369.70 +y_0=0 +a=6378249.145 +rf=293.465 ' +
+    EPSG_1168_TOWGS84 + ' +units=m +no_defs');
+
+function getSourceProj(key) {
+    return {
+        'utm31n':    'NG:UTM31N',
+        'utm32n':    'NG:UTM32N',
+        'west-belt': 'NG:WEST',
+        'mid-belt':  'NG:MID',
+        'east-belt': 'NG:EAST'
+    }[key] || 'NG:UTM32N';
+}
+
+function getWgs84UtmProj(zone, hemi) {
+    const south = (hemi === 'S') ? ' +south' : '';
+    return proj4(`+proj=utm +zone=${zone} +datum=WGS84 +units=m +no_defs${south}`);
+}
+
+// ================================================================
+// 2. CORE CONVERSIONS
+// ================================================================
+
+/**
+ * Minna → WGS84 UTM.
+ * Pipeline: source projected → WGS84 geographic → WGS84 UTM.
+ * Datum shift handled by EPSG:1168 (X=-92, Y=-93, Z=122).
+ */
+function minnaToWgs84Utm(e, n, srcKey, outZone, hemi) {
+    try {
+        const srcProj = getSourceProj(srcKey);
+        const dstProj = getWgs84UtmProj(outZone, hemi);
+        const utm = proj4(srcProj, dstProj, [e, n]);
+        const geo = proj4(srcProj, 'WGS84', [e, n]);
+        return { e: utm[0], n: utm[1], lat: geo[1], lon: geo[0] };
+    } catch (err) {
+        console.error('Conversion error:', err);
+        return null;
+    }
+}
+
+/**
+ * TB20 → UTM (2-D similarity / affine, then UTM geographic).
+ */
+function tb20ToUTM(e, n, angleDeg, scale, tx, ty) {
+    const rad = angleDeg * Math.PI / 180;
+    const cosA = Math.cos(rad), sinA = Math.sin(rad);
+    return {
+        e: e * scale * cosA - n * scale * sinA + tx,
+        n: e * scale * sinA + n * scale * cosA + ty
+    };
+}
+
+function utmToLatLon(e, n, zone, hemisphere) {
+    try {
+        const src = getWgs84UtmProj(zone, hemisphere);
+        const r = proj4(src, 'WGS84', [e, n]);
+        return { lat: r[1], lon: r[0] };
+    } catch (_) { return null; }
+}
+
+function geoToUTM(lat, lon, zone, hemisphere) {
+    try {
+        const dst = getWgs84UtmProj(zone, hemisphere);
+        const r = proj4('WGS84', dst, [lon, lat]);
+        return { e: r[0], n: r[1] };
+    } catch (_) { return null; }
+}
+
+// ================================================================
+// 3. UI STATE
+// ================================================================
+const results     = [];
+const statusBar   = document.getElementById('status-bar');
+const resultsBody = document.getElementById('results-body');
+const headersRow  = document.getElementById('results-head');
+
+const tabBtns = document.querySelectorAll('.tab-btn');
+const panes = {
+    minna: document.getElementById('tab-minna'),
+    tb20:  document.getElementById('tab-tb20'),
+    geo:   document.getElementById('tab-geo')
+};
+let currentTab = 'minna';
+
+tabBtns.forEach(btn => {
+    btn.addEventListener('click', function () {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        const name = this.dataset.tab;
+        Object.keys(panes).forEach(k => panes[k].classList.toggle('active', k === name));
+        currentTab = name;
+        renderTable();
+        statusBar.textContent = `Switched to ${name.toUpperCase()} mode`;
+        if (name === 'geo') updateGeoUI();
+    });
+});
+
+// ================================================================
+// 4. SOURCE HINTS
+// ================================================================
+const sourceHints = {
+    'utm31n':    'Minna / UTM Zone 31N · Clarke 1880 (RGS) · EPSG:1168',
+    'utm32n':    'Minna / UTM Zone 32N · Clarke 1880 (RGS) · EPSG:1168',
+    'west-belt': 'Nigeria West Belt · Transverse Mercator on Clarke 1880 (RGS) · EPSG:1168',
+    'mid-belt':  'Nigeria Mid Belt · Transverse Mercator on Clarke 1880 (RGS) · EPSG:1168',
+    'east-belt': 'Nigeria East Belt · Transverse Mercator on Clarke 1880 (RGS) · EPSG:1168'
+};
+document.getElementById('src-system').addEventListener('change', function () {
+    document.getElementById('src-hint').textContent = sourceHints[this.value] || '';
+});
+
+// ================================================================
+// 5. GEO TAB UI
+// ================================================================
+function updateGeoUI() {
+    const isGeo2UTM = (document.getElementById('geo-dir').value === 'geo2utm');
+    const l1 = document.getElementById('geo-l1');
+    const l2 = document.getElementById('geo-l2');
+    const i1 = document.getElementById('geo-v1');
+    const i2 = document.getElementById('geo-v2');
+    const il = document.getElementById('geo-input-label');
+    const bl = document.getElementById('geo-batch-lbl');
+
+    if (isGeo2UTM) {
+        l1.textContent = 'Latitude (°)';  l2.textContent = 'Longitude (°)';
+        i1.placeholder = '6.5244';        i2.placeholder = '3.3792';
+        il.textContent = 'Input — Latitude / Longitude';
+        bl.textContent = 'Batch input — one pair per line (lat lon)';
+    } else {
+        l1.textContent = 'Easting (m)';   l2.textContent = 'Northing (m)';
+        i1.placeholder = '500000';        i2.placeholder = '100000';
+        il.textContent = 'Input — UTM Easting / Northing';
+        bl.textContent = 'Batch input — one pair per line (easting northing)';
+    }
+}
+document.getElementById('geo-dir').addEventListener('change', updateGeoUI);
+
+// ================================================================
+// 6. TABLE RENDERING
+// ================================================================
+function getHeaders(mode) {
+    if (mode === 'minna') {
+        return ['Minna E (m)', 'Minna N (m)', 'WGS84 UTM E (m)', 'WGS84 UTM N (m)', 'Latitude (°)', 'Longitude (°)'];
+    } else if (mode === 'tb20') {
+        return ['TB20 E (m)', 'TB20 N (m)', 'UTM E (m)', 'UTM N (m)', 'Latitude (°)', 'Longitude (°)'];
+    } else {
+        const dir = document.getElementById('geo-dir').value;
+        return dir === 'geo2utm'
+            ? ['Latitude (°)', 'Longitude (°)', 'UTM E (m)', 'UTM N (m)', 'Zone', 'Hemisphere']
+            : ['UTM E (m)', 'UTM N (m)', 'Latitude (°)', 'Longitude (°)', 'Zone', 'Hemisphere'];
+    }
+}
+
+function renderTable() {
+    const mode = currentTab;
+    const headers = getHeaders(mode);
+    headersRow.querySelectorAll('th').forEach((th, i) => {
+        if (i < headers.length) th.textContent = headers[i];
+    });
+
+    if (results.length === 0) {
+        resultsBody.innerHTML = `<tr class="empty-row"><td colspan="6">No results yet — enter coordinates above</td></tr>`;
+        return;
+    }
+    const filtered = results.filter(r => r.mode === mode);
+    if (filtered.length === 0) {
+        resultsBody.innerHTML = `<tr class="empty-row"><td colspan="6">No results for this mode</td></tr>`;
+        return;
+    }
+
+    const fmt = v => (v !== null && v !== undefined && !isNaN(v)) ? Number(v).toFixed(4) : '';
+    let html = '';
+    filtered.forEach(row => {
+        const realIdx = results.indexOf(row);
+        html += `<tr data-index="${realIdx}">
+            <td>${fmt(row.in1)}</td>
+            <td>${fmt(row.in2)}</td>
+            <td>${fmt(row.out1)}</td>
+            <td>${fmt(row.out2)}</td>
+            <td>${fmt(row.extra1)}</td>
+            <td>${(row.extra2 !== null && row.extra2 !== undefined) ? row.extra2 : ''}</td>
+        </tr>`;
+    });
+    resultsBody.innerHTML = html;
+}
+
+// ================================================================
+// 7. ADD / CLEAR / DELETE
+// ================================================================
+function addResult(in1, in2, out1, out2, extra1, extra2, mode) {
+    results.push({ in1, in2, out1, out2, extra1, extra2, mode });
+    renderTable();
+    const wrapper = document.querySelector('.table-wrapper');
+    if (wrapper) wrapper.scrollTop = wrapper.scrollHeight;
+}
+function clearResults() {
+    results.length = 0;
+    renderTable();
+    statusBar.textContent = 'Results cleared';
+}
+function deleteSelected() {
+    const sel = document.querySelector('tr.selected');
+    if (!sel) { statusBar.textContent = 'Click a row to select it, then click Delete.'; return; }
+    const idx = parseInt(sel.dataset.index);
+    if (!isNaN(idx) && idx >= 0 && idx < results.length) {
+        results.splice(idx, 1);
+        renderTable();
+        statusBar.textContent = 'Row deleted';
+    }
+}
+resultsBody.addEventListener('click', e => {
+    const tr = e.target.closest('tr');
+    if (!tr || tr.classList.contains('empty-row')) return;
+    document.querySelectorAll('tr.selected').forEach(r => r.classList.remove('selected'));
+    tr.classList.add('selected');
+    statusBar.textContent = `Row ${tr.dataset.index} selected`;
+});
+
+// ================================================================
+// 8. CSV EXPORT
+// ================================================================
+function exportCSV() {
+    if (results.length === 0) { statusBar.textContent = 'No data to export'; return; }
+    const mode = currentTab;
+    const headers = getHeaders(mode);
+    let csv = headers.join(',') + ',Mode\n';
+    results.filter(r => r.mode === mode).forEach(r => {
+        const vals = [r.in1, r.in2, r.out1, r.out2, r.extra1, r.extra2];
+        csv += vals.map(v => (v !== null && v !== undefined) ? v : '').join(',') + ',' + r.mode + '\n';
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `conversion_${mode}_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    statusBar.textContent = `Exported ${results.filter(r => r.mode === mode).length} rows (${mode})`;
+}
+
+// ================================================================
+// 9. MINNA HANDLERS
+// ================================================================
+function runMinnaConversion() {
+    const e = parseFloat(document.getElementById('in-e').value);
+    const n = parseFloat(document.getElementById('in-n').value);
+    if (isNaN(e) || isNaN(n)) { statusBar.textContent = 'Invalid coordinates'; return; }
+
+    const srcKey  = document.getElementById('src-system').value;
+    const outZone = parseInt(document.getElementById('out-zone').value);
+    const hemi    = document.getElementById('out-hemi').value;
+
+    const r = minnaToWgs84Utm(e, n, srcKey, outZone, hemi);
+    if (!r) { statusBar.textContent = 'Conversion failed — check input values'; return; }
+
+    addResult(e, n, r.e, r.n, r.lat, r.lon, 'minna');
+    const dE = r.e - e, dN = r.n - n;
+    statusBar.textContent =
+        `Converted · ΔE = ${dE.toFixed(3)} m · ΔN = ${dN.toFixed(3)} m · Zone ${outZone}${hemi}`;
+}
+document.getElementById('add-point').addEventListener('click', runMinnaConversion);
+
+document.getElementById('convert-all').addEventListener('click', function () {
+    const raw = document.getElementById('batch-input').value;
+    const lines = raw.split('\n').filter(l => l.trim() !== '');
+    if (lines.length === 0) { statusBar.textContent = 'Batch empty'; return; }
+
+    const srcKey  = document.getElementById('src-system').value;
+    const outZone = parseInt(document.getElementById('out-zone').value);
+    const hemi    = document.getElementById('out-hemi').value;
+    let count = 0, errors = 0;
+    clearResults();
+
+    for (let line of lines) {
+        line = line.trim(); if (!line) continue;
+        const parts = line.split(/[,\s]+/).filter(p => p !== '');
+        if (parts.length < 2) { errors++; continue; }
+        const e = parseFloat(parts[0]), n = parseFloat(parts[1]);
+        if (isNaN(e) || isNaN(n)) { errors++; continue; }
+        const r = minnaToWgs84Utm(e, n, srcKey, outZone, hemi);
+        if (!r) { errors++; continue; }
+        addResult(e, n, r.e, r.n, r.lat, r.lon, 'minna');
+        count++;
+    }
+    statusBar.textContent = `Minna batch: ${count} converted, ${errors} skipped · Zone ${outZone}${hemi}`;
+});
+
+document.getElementById('clear-batch').addEventListener('click', function () {
+    document.getElementById('batch-input').value = '';
+    statusBar.textContent = 'Batch cleared';
+});
+document.getElementById('swap-en').addEventListener('click', function () {
+    const eI = document.getElementById('in-e');
+    const nI = document.getElementById('in-n');
+    const tmp = eI.value; eI.value = nI.value; nI.value = tmp;
+    statusBar.textContent = 'Easting / Northing swapped';
+});
+document.getElementById('load-control').addEventListener('click', function () {
+    document.getElementById('in-e').value = '344077.774';
+    document.getElementById('in-n').value = '717514.211';
+    document.getElementById('src-system').value = 'utm32n';
+    document.getElementById('out-zone').value = '32';
+    document.getElementById('out-hemi').value = 'N';
+    document.getElementById('src-hint').textContent = sourceHints['utm32n'];
+    statusBar.textContent = 'Control point loaded — click Add Single Point to convert';
+});
+
+// ================================================================
+// 10. TB20 HANDLERS
+// ================================================================
+document.getElementById('tb20-add').addEventListener('click', function () {
+    const e = parseFloat(document.getElementById('tb20-e').value);
+    const n = parseFloat(document.getElementById('tb20-n').value);
+    if (isNaN(e) || isNaN(n)) { statusBar.textContent = 'Invalid TB20 coordinates'; return; }
+    const angle = parseFloat(document.getElementById('tb20-angle').value);
+    const scale = parseFloat(document.getElementById('tb20-scale').value);
+    const tx    = parseFloat(document.getElementById('tb20-tx').value);
+    const ty    = parseFloat(document.getElementById('tb20-ty').value);
+    const zone  = parseInt(document.getElementById('tb20-zone').value);
+    const hemi  = document.getElementById('tb20-hemi').value;
+    const utm = tb20ToUTM(e, n, angle, scale, tx, ty);
+    const ll  = utmToLatLon(utm.e, utm.n, zone, hemi);
+    addResult(e, n, utm.e, utm.n, ll ? ll.lat : null, ll ? ll.lon : null, 'tb20');
+    statusBar.textContent =
+        `TB20 → UTM: (${e.toFixed(2)}, ${n.toFixed(2)}) → (${utm.e.toFixed(2)}, ${utm.n.toFixed(2)})`;
+});
+
+document.getElementById('tb20-convert-all').addEventListener('click', function () {
+    const raw = document.getElementById('tb20-batch').value;
+    const lines = raw.split('\n').filter(l => l.trim() !== '');
+    if (lines.length === 0) { statusBar.textContent = 'Batch empty'; return; }
+    const angle = parseFloat(document.getElementById('tb20-angle').value);
+    const scale = parseFloat(document.getElementById('tb20-scale').value);
+    const tx    = parseFloat(document.getElementById('tb20-tx').value);
+    const ty    = parseFloat(document.getElementById('tb20-ty').value);
+    const zone  = parseInt(document.getElementById('tb20-zone').value);
+    const hemi  = document.getElementById('tb20-hemi').value;
+    let count = 0;
+    clearResults();
+    for (let line of lines) {
+        line = line.trim(); if (!line) continue;
+        const parts = line.split(/[,\s]+/).filter(p => p !== '');
+        if (parts.length < 2) continue;
+        const e = parseFloat(parts[0]), n = parseFloat(parts[1]);
+        if (isNaN(e) || isNaN(n)) continue;
+        const utm = tb20ToUTM(e, n, angle, scale, tx, ty);
+        const ll  = utmToLatLon(utm.e, utm.n, zone, hemi);
+        addResult(e, n, utm.e, utm.n, ll ? ll.lat : null, ll ? ll.lon : null, 'tb20');
+        count++;
+    }
+    statusBar.textContent = `TB20 batch: ${count} points added`;
+});
+
+document.getElementById('tb20-clear-batch').addEventListener('click', function () {
+    document.getElementById('tb20-batch').value = '';
+    statusBar.textContent = 'Batch cleared';
+});
+document.getElementById('tb20-reset').addEventListener('click', function () {
+    document.getElementById('tb20-angle').value = '0.0330555555';
+    document.getElementById('tb20-scale').value = '0.999999999';
+    document.getElementById('tb20-tx').value    = '332287.4231';
+    document.getElementById('tb20-ty').value    = '711676.8669';
+    document.getElementById('tb20-zone').value  = '32';
+    document.getElementById('tb20-hemi').value  = 'N';
+    statusBar.textContent = 'TB20 parameters reset';
+});
+
+// ================================================================
+// 11. GEO ↔ UTM HANDLERS
+// ================================================================
+document.getElementById('geo-add').addEventListener('click', function () {
+    const dir  = document.getElementById('geo-dir').value;
+    const zone = parseInt(document.getElementById('geo-zone').value);
+    const hemi = document.getElementById('geo-hemi').value;
+    const v1   = parseFloat(document.getElementById('geo-v1').value);
+    const v2   = parseFloat(document.getElementById('geo-v2').value);
+    if (isNaN(v1) || isNaN(v2)) { statusBar.textContent = 'Invalid input values'; return; }
+    if (dir === 'geo2utm') {
+        const r = geoToUTM(v1, v2, zone, hemi);
+        if (!r) { statusBar.textContent = 'Geo→UTM failed'; return; }
+        addResult(v1, v2, r.e, r.n, zone, hemi, 'geo');
+        statusBar.textContent = `Geo → UTM: (${v1.toFixed(4)}, ${v2.toFixed(4)}) → (${r.e.toFixed(2)}, ${r.n.toFixed(2)}) Zone ${zone}${hemi}`;
+    } else {
+        const ll = utmToLatLon(v1, v2, zone, hemi);
+        if (!ll) { statusBar.textContent = 'UTM→Geo failed'; return; }
+        addResult(v1, v2, ll.lat, ll.lon, zone, hemi, 'geo');
+        statusBar.textContent = `UTM → Geo: (${v1.toFixed(2)}, ${v2.toFixed(2)}) → (${ll.lat.toFixed(4)}, ${ll.lon.toFixed(4)}) Zone ${zone}${hemi}`;
+    }
+});
+
+document.getElementById('geo-convert-all').addEventListener('click', function () {
+    const raw = document.getElementById('geo-batch').value;
+    const lines = raw.split('\n').filter(l => l.trim() !== '');
+    if (lines.length === 0) { statusBar.textContent = 'Batch empty'; return; }
+    const dir  = document.getElementById('geo-dir').value;
+    const zone = parseInt(document.getElementById('geo-zone').value);
+    const hemi = document.getElementById('geo-hemi').value;
+    let count = 0;
+    clearResults();
+    for (let line of lines) {
+        line = line.trim(); if (!line) continue;
+        const parts = line.split(/[,\s]+/).filter(p => p !== '');
+        if (parts.length < 2) continue;
+        const v1 = parseFloat(parts[0]), v2 = parseFloat(parts[1]);
+        if (isNaN(v1) || isNaN(v2)) continue;
+        if (dir === 'geo2utm') {
+            const r = geoToUTM(v1, v2, zone, hemi); if (!r) continue;
+            addResult(v1, v2, r.e, r.n, zone, hemi, 'geo');
+        } else {
+            const ll = utmToLatLon(v1, v2, zone, hemi); if (!ll) continue;
+            addResult(v1, v2, ll.lat, ll.lon, zone, hemi, 'geo');
+        }
+        count++;
+    }
+    statusBar.textContent = `Geo batch: ${count} points added`;
+});
+
+document.getElementById('geo-clear-batch').addEventListener('click', function () {
+    document.getElementById('geo-batch').value = '';
+    statusBar.textContent = 'Batch cleared';
+});
+document.getElementById('geo-reset').addEventListener('click', function () {
+    document.getElementById('geo-zone').value = '32';
+    document.getElementById('geo-hemi').value = 'N';
+    document.getElementById('geo-dir').value = 'geo2utm';
+    document.getElementById('geo-v1').value = '6.5244';
+    document.getElementById('geo-v2').value = '3.3792';
+    updateGeoUI();
+    statusBar.textContent = 'Geo parameters reset';
+});
+
+// ================================================================
+// 12. GLOBAL CONTROLS
+// ================================================================
+document.getElementById('export-csv').addEventListener('click', exportCSV);
+document.getElementById('clear-results').addEventListener('click', clearResults);
+document.getElementById('delete-selected').addEventListener('click', deleteSelected);
+
+// ================================================================
+// 13. INIT
+// ================================================================
+function init() {
+    updateGeoUI();
+
+    // Pre-load the control point and convert with EPSG:1168
+    const e = parseFloat(document.getElementById('in-e').value);
+    const n = parseFloat(document.getElementById('in-n').value);
+    const srcKey  = document.getElementById('src-system').value;
+    const outZone = parseInt(document.getElementById('out-zone').value);
+    const hemi    = document.getElementById('out-hemi').value;
+
+    const r = minnaToWgs84Utm(e, n, srcKey, outZone, hemi);
+    if (r) {
+        addResult(e, n, r.e, r.n, r.lat, r.lon, 'minna');
+        statusBar.textContent =
+            `Ready · Control point loaded · Output: (${r.e.toFixed(4)}, ${r.n.toFixed(4)}) Zone ${outZone}${hemi}`;
+    } else {
+        statusBar.textContent = 'Ready — enter coordinates to begin';
+    }
+}
+setTimeout(init, 300);
+</script>
+</body>
+</html>
